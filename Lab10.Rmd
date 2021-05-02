@@ -1,0 +1,104 @@
+---
+title: "Lab10"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+Your task is to obtain the data from the following paper and conduct a reproducible analysis of their results.
+Reproduce as much of the analysis as possible using only paired-sample t-tests. Note, the authors reported a 2x2 repeated measures ANOVA, but consider how the same questions could be answered by t-tests (2 points)
+
+```{r}
+library(papaja)
+library(dplyr)
+library(ggplot2)
+
+all_data <- read.csv("open_data/stroop_data.csv")
+
+(stand_stroop <- t.test(all_data$incongruent_stand,
+                         all_data$congruent_stand,
+                         paired = TRUE))
+
+(sit_stroop <- t.test(all_data$incongruent_sit,
+                         all_data$congruent_sit,
+                         paired = TRUE))
+
+stand_stroop_scores <- all_data$incongruent_stand-all_data$incongruent_stand
+sit_stroop_scores <- all_data$incongruent_sit-all_data$incongruent_sit
+
+stroop_differences <- sit_stroop_scores - stand_stroop_scores
+
+(paired_results <- t.test(stand_stroop_scores,
+                         sit_stroop_scores,
+                         paired=TRUE))
+
+(interaction_results <- t.test(stroop_differences))
+
+```
+The authors wrote:
+The Stroop effects in both the sitting condition, M = 118.9 ms, t(49) = 16.52, p < .01, d = 2.376, and the standing condition, M = 95.9 ms, t(49) = 14.327,p < .01, d = 2.034, were highly reliable
+Our reproduction found:
+The Stroop effects in both the sitting condition, `r papaja::apa_print(sit_stroop)$full_result`, and the standing condition, `r papaja::apa_print(stand_stroop)$full_result`, were highly reliable
+
+The authors wrote:
+but the most significant finding again was the shrinkage of the effect when participants were standing, F(1, 49) = 8.964, p = .004, ηp 2 = .155.
+Our reproduction found:
+`r apa_print(interaction_results)$full_result`.
+
+Reproduce a graph of the means, like shown in the paper (2 points)
+```{r}
+library(tidyr)
+
+# convert to long
+
+stroop_df <- all_data %>%
+  pivot_longer(cols = 1:4,
+              names_to = c("Congruency","Posture"),
+              names_sep = "_",
+              values_to = "RTs")
+
+# get means
+
+overall_means <- stroop_df %>%
+  group_by(Posture,Congruency) %>%
+  summarise(meanRT = mean(RTs),
+            SEMRT = (sd(RTs)/sqrt(length(RTs))))
+
+# plot
+
+ggplot(overall_means, aes(x=Posture,
+                          y=meanRT,
+                          group=Congruency,
+                          fill=Congruency))+
+  geom_bar(stat="identity", position="dodge")+
+  theme_classic(base_size=12)+
+  ylab("Mean Reaction Time (ms)")+
+  geom_errorbar(aes(ymin=meanRT-SEMRT,
+                    ymax=meanRT-SEMRT),
+                postition=position_dodge(width=0.9),
+                width=.2,
+                color="black")+
+  coord_cartesian(ylim=c(500,1000))
+```
+
+Present a power-curve analysis for the design. (2 points)
+```{r}
+effect_sizes <- seq(0,1.5,.1)
+prop_significant <-c()
+for(i in 1:length(effect_sizes)){
+  sim_ps <- replicate(1000, t.test(replicate(50, rnorm(1, effect_sizes[i], 1)),
+                                   mu = 0)$p.value)
+  
+  prop_significant[i] <- length(sim_ps[sim_ps < .05])/1000
+}
+plot_df <- data.frame(effect_sizes,
+                      prop_significant)
+ggplot(plot_df, aes(x=effect_sizes,y=prop_significant))+
+  geom_line() +
+  geom_point() +
+  scale_x_continuous(breaks=seq(0,1.5,.1))+
+  scale_y_continuous(breaks=seq(0,1,.1)) +
+  ylab("Proportion Significant")
+```
+
