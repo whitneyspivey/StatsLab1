@@ -1,0 +1,22 @@
+---
+title: "Semester Project Part 1"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(papaja)
+
+all_data <- read.csv(file="open_data/data_condensed.csv", header = TRUE)
+
+mean()
+
+
+
+```
+
